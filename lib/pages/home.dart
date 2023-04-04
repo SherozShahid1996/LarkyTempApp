@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_guid/flutter_guid.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:temp_larky_front/pages/restaurant_list.dart';
 import '../common/app_style.dart';
 import '../common/size_config.dart';
+import '../util/localStorage.dart';
 import 'footer.dart';
 
 class Home extends StatefulWidget {
@@ -21,9 +24,29 @@ class _HomeState extends State<Home> {
   late Color _color = _colorHint;
   final String _searchHintText = 'Postleitzahl, Ort oder Restaurant';
   late String _searchHint = _searchHintText;
+  final TextEditingController? _search = new TextEditingController();
+  var position = null;
+
+  Future<void> getQuery() async {
+    String query = await localStorage.getSearchValue();
+    _search!.text = query;
+  }
+
+  Future<void> getPosition() async {
+    Position query = await localStorage.getLocation();
+    position = query;
+    print('position');
+    print(position!.latitude);
+    print(position!.longitude);
+  }
 
   @override
   void initState() {
+    getQuery();
+    getPosition();
+
+    final _deviceId = Guid.newGuid;
+    localStorage.storeDeviceId(_deviceId.toString());
     _textFieldFocus.addListener(() {
       if (_textFieldFocus.hasFocus) {
         setState(() {
@@ -57,9 +80,9 @@ class _HomeState extends State<Home> {
                 children: [
                   homeLogo(),
                   const SizedBox(height: 95),
-                  homeSearch(_textFieldFocus, _color, _searchHint),
+                  homeSearch(_textFieldFocus, _color, _searchHint, _search),
                   const SizedBox(height: 25),
-                  homeBtnSearch(context),
+                  homeBtnSearch(context, _search, position),
                   //const SizedBox(height: 150),
                   homeBtnFavorite(),
                 ],
@@ -84,10 +107,12 @@ Widget homeLogo() => Container(
       ),
     );
 
-Widget homeSearch(FocusNode textFieldFocus, Color color, String searchHint) {
+Widget homeSearch(
+    FocusNode textFieldFocus, Color color, String searchHint, search) {
   return Padding(
     padding: const EdgeInsets.only(right: 8.0, left: 8.0),
     child: TextField(
+      controller: search,
       focusNode: textFieldFocus,
       style: const TextStyle(fontSize: 20, color: Colors.black),
       decoration: InputDecoration(
@@ -109,7 +134,7 @@ Widget homeSearch(FocusNode textFieldFocus, Color color, String searchHint) {
   );
 }
 
-Widget homeBtnSearch(BuildContext context) {
+Widget homeBtnSearch(BuildContext context, search, Position? position) {
   return SizedBox(
     height: 48,
     child: ElevatedButton(
@@ -129,8 +154,15 @@ Widget homeBtnSearch(BuildContext context) {
           ),
         ),
       ),
-      onPressed: () =>
-          Navigator.of(context).pushNamed(RestaurantList.routeName),
+      onPressed: () {
+        localStorage.storeSearchValue(search.text);
+        Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  RestaurantList(search: search.text, position: position),
+            ));
+      },
       child: const Text("Suchen", style: TextStyle(fontSize: 18)),
     ),
   );

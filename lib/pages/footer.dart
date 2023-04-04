@@ -1,11 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_svg/svg.dart';
 import '../common/app_style.dart';
 import '../common/size_config.dart';
 import '../common/constant.dart';
-
-enum FooterPages { pg1, pg2, pg3, pg4, pg5 }
 
 Widget footer(BuildContext context) {
   return Container(
@@ -117,32 +116,45 @@ Widget buildSheet(BuildContext context, FooterPages pg) {
 footerPage(FooterPages r, controller) {
   switch (r) {
     case FooterPages.pg1:
-      return ListView(
-        controller: controller,
-        children: const [
-          Text("AGB für Kunden", style: TextStyle(fontSize: 16)),
-          Text(
-              "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.",
-              style: TextStyle(fontSize: 16)),
-          Text(
-              "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.",
-              style: TextStyle(fontSize: 16)),
-          Text(
-              "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.",
-              style: TextStyle(fontSize: 16)),
-          Text(
-              "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.",
-              style: TextStyle(fontSize: 16)),
-        ],
-      );
+      return SingleChildScrollView(
+          child: Html(
+        data: pg1,
+        style: {
+          "h5": Style(fontSize: FontSize.larger),
+          "strong": Style(fontSize: FontSize.large),
+        },
+      ));
     case FooterPages.pg2:
-      return const Text("pg2");
+      return SingleChildScrollView(
+          child: Html(
+        data: pg2,
+        style: {
+          "h6": Style(fontSize: FontSize.larger),
+          "h5": Style(fontSize: FontSize.large),
+          "strong": Style(fontSize: FontSize.large),
+        },
+      ));
     case FooterPages.pg3:
-      return const Text("pg3");
+      return SingleChildScrollView(
+          child: Html(data: pg3, style: {
+        "h6": Style(fontSize: FontSize.larger),
+        "h5": Style(fontSize: FontSize.large),
+        "strong": Style(fontSize: FontSize.large),
+      }));
     case FooterPages.pg4:
-      return const Text("pg4");
+      return SingleChildScrollView(
+          child: Html(data: pg4, style: {
+        "h6": Style(fontSize: FontSize.larger),
+        "h5": Style(fontSize: FontSize.large),
+        "strong": Style(fontSize: FontSize.large),
+      }));
     case FooterPages.pg5:
-      return const Text("pg5");
+      return SingleChildScrollView(
+          child: Html(data: pg5, style: {
+        "h6": Style(fontSize: FontSize.larger),
+        "h5": Style(fontSize: FontSize.large),
+        "strong": Style(fontSize: FontSize.large),
+      }));
   }
 }
 

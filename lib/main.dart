@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
       initialRoute: Home.routeName,
       routes: {
         Home.routeName: (_) => const Home(),
-        RestaurantList.routeName: (_) => const RestaurantList(),
+        RestaurantList.routeName: (_) => const RestaurantList(search: ""),
       },
     );
   }

@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:temp_larky_front/common/size_config.dart';
 import 'package:http/http.dart' as http;
 import 'package:temp_larky_front/model/common_result.dart';
@@ -13,10 +13,15 @@ import '../common/constant.dart';
 import '../model/restaurant_list.dart';
 import 'footer.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../util/localStorage.dart';
+import 'home.dart';
 
 class RestaurantList extends StatefulWidget {
-  const RestaurantList({Key? key}) : super(key: key);
+  //const RestaurantList({Key? key}) : super(key: key);
   static const routeName = '/restaurant-list';
+  final String search;
+  final Position? position;
+  const RestaurantList({required this.search, this.position});
 
   @override
   State<RestaurantList> createState() => _RestaurantListState();
@@ -33,6 +38,31 @@ class _RestaurantListState extends State<RestaurantList> {
   late CommonResult commonResult;
   bool isSearch = false;
   String searchResilt = "";
+  String deviceId = "";
+
+  bool flag = false;
+  final TextEditingController? _search = new TextEditingController();
+  void getSearch(value) {
+    setState(() {
+      searchResilt = value;
+    });
+  }
+
+  Future<void> getDeviceId() async {
+    String query = await localStorage.getDeviceId();
+    deviceId = query;
+  }
+
+  @override
+  initState() {
+    flag = true;
+    _search!.text = widget.search;
+    if (widget.search.isNotEmpty) {
+      isSearch = true;
+      getSearch(widget.search);
+    }
+    getDeviceId();
+  }
 
   final Set<Factory<OneSequenceGestureRecognizer>> gestureRecognizers = {
     Factory(() => EagerGestureRecognizer())
@@ -43,13 +73,13 @@ class _RestaurantListState extends State<RestaurantList> {
   Widget build(BuildContext context) {
     void setSearfield() {
       setState(() {
-        isSearch = !isSearch;
-      });
-    }
-
-    void getSearch(value) {
-      setState(() {
-        searchResilt = value;
+        if (searchResilt != "") {
+          searchResilt = "";
+          localStorage.storeSearchValue("");
+          _search!.clear();
+        } else {
+          isSearch = !isSearch;
+        }
       });
     }
 
@@ -108,11 +138,14 @@ class _RestaurantListState extends State<RestaurantList> {
           future: getData(),
           builder: (context, snapshot) {
             if (snapshot.hasData) {
+              Future.delayed(Duration.zero, () async {
+                function(snapshot.data!);
+              });
               return SingleChildScrollView(
                 child: Column(
                   children: [
                     restaurantListHeader(
-                        context, isSearch, setSearfield, getSearch),
+                        context, isSearch, setSearfield, getSearch, _search),
                     snapshot.data!.FavResList!.isNotEmpty
                         ? Container(
                             key: favKey,
@@ -129,7 +162,8 @@ class _RestaurantListState extends State<RestaurantList> {
                               snapshot.data!.FavResList![index],
                               context,
                               _key,
-                              gestureRecognizers);
+                              gestureRecognizers,
+                              deviceId);
                         }),
                     snapshot.data!.NearbyResList!.isNotEmpty
                         ? Container(
@@ -147,7 +181,8 @@ class _RestaurantListState extends State<RestaurantList> {
                               snapshot.data!.NearbyResList![index],
                               context,
                               _key,
-                              gestureRecognizers);
+                              gestureRecognizers,
+                              deviceId);
                         }),
                     snapshot.data!.RemainingResList!.isNotEmpty
                         ? Container(
@@ -165,7 +200,8 @@ class _RestaurantListState extends State<RestaurantList> {
                               snapshot.data!.RemainingResList![index],
                               context,
                               _key,
-                              gestureRecognizers);
+                              gestureRecognizers,
+                              deviceId);
                         }),
                     footer(context),
                   ],
@@ -181,12 +217,11 @@ class _RestaurantListState extends State<RestaurantList> {
   Future<MainList> getData() async {
     final String? token = await AuthDetails.getTokenLocal();
     String signInURL = urls[ApiUrl.getRestaurant]!;
-
     var resBody = {};
-    resBody["Query"] = "Restaurant";
-    resBody["Latitude"] = "24.9266176";
-    resBody["Longitude"] = "67.0662656";
-    resBody["DeviceId"] = "470a5444-f036-414f-8b96-d1899dc3e2cf";
+    resBody["Query"] = searchResilt;
+    resBody["Latitude"] = "37.4220936"; // widget.position!.latitude;
+    resBody["Longitude"] = "-122.083922"; // widget.position!.longitude;
+    resBody["DeviceId"] = deviceId;
     final response = await http.post(Uri.parse(signInURL),
         headers: {
           'Content-Type': 'application/json',
@@ -195,18 +230,23 @@ class _RestaurantListState extends State<RestaurantList> {
         body: jsonEncode(resBody));
     var list = json.decode(json.decode(response.body)["objects"]);
     final objectResponseFinal = MainList.fromJson(list);
-
-    setState(() {
-      _favColor =
-          objectResponseFinal.FavResList!.isEmpty ? themeGray : _favColor;
-      _nearbyColor =
-          objectResponseFinal.NearbyResList!.isEmpty ? themeGray : _nearbyColor;
-      _otherColor = objectResponseFinal.RemainingResList!.isEmpty
-          ? themeGray
-          : _otherColor;
-    });
-
     return objectResponseFinal;
+  }
+
+  void function(MainList objectResponseFinal) {
+    if (flag) {
+      setState(() {
+        _favColor =
+            objectResponseFinal.FavResList!.isEmpty ? themeGray : _favColor;
+        _nearbyColor = objectResponseFinal.NearbyResList!.isEmpty
+            ? themeGray
+            : _nearbyColor;
+        _otherColor = objectResponseFinal.RemainingResList!.isEmpty
+            ? themeGray
+            : _otherColor;
+        flag = false;
+      });
+    }
   }
 
   Future scrollToFavourite() async {
@@ -289,7 +329,8 @@ Widget iFrameSheet(
   );
 }
 
-Widget restaurantList(var obj, BuildContext context, key, gestureRecognizers) {
+Widget restaurantList(
+    var obj, BuildContext context, key, gestureRecognizers, deviceId) {
   return Column(
     children: [
       Row(
@@ -303,8 +344,8 @@ Widget restaurantList(var obj, BuildContext context, key, gestureRecognizers) {
                 color: themePink,
               ),
               highlightColor: Colors.pink,
-              onPressed: () => updateFavourite(obj.id, obj.isFavorite!,
-                  "470a5444-f036-414f-8b96-d1899dc3e2cf", context),
+              onPressed: () =>
+                  updateFavourite(obj.id, obj.isFavorite!, deviceId, context),
             ),
           ),
         ],
@@ -370,14 +411,19 @@ Future<void> updateFavourite(
       body: jsonEncode(resBody));
   if (response.statusCode == 200) {
     if (context.mounted) {
-      Navigator.of(context).pop();
-      Navigator.of(context).pushNamed(RestaurantList.routeName);
+      Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const RestaurantList(search: ''),
+          ));
+      // Navigator.of(context).pop();
+      // Navigator.of(context).pushNamed(RestaurantList.routeName);
     }
   }
 }
 
 Widget restaurantListHeader(
-    BuildContext context, bool isSearch, onPressed, getSearch) {
+    BuildContext context, bool isSearch, onPressed, getSearch, search) {
   return Padding(
     padding: const EdgeInsets.only(top: 35, left: 20, right: 20),
     child: Row(
@@ -391,13 +437,15 @@ Widget restaurantListHeader(
                   child: SizedBox(
                     height: 48,
                     child: TextField(
-                      onChanged: (value) {
+                      controller: search,
+                      onSubmitted: (value) {
+                        localStorage.storeSearchValue(value);
                         getSearch(value);
                       },
                       decoration: const InputDecoration(
                         filled: true,
                         fillColor: Colors.white,
-                        hintText: 'Enter a search term',
+                        hintText: 'Postleitzahl, Ort oder Restaurant',
                         prefixIcon:
                             Icon(Icons.search, color: Colors.black, size: 30),
                         enabledBorder: OutlineInputBorder(
@@ -438,7 +486,11 @@ Widget restaurantListHeader(
 }
 
 Widget restaurantListLogo(BuildContext context) => InkWell(
-      onTap: () => Navigator.of(context).pop(),
+      onTap: () => Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const Home(),
+          )),
       child: SvgPicture.asset(
         'images/mblLogo2.svg',
         allowDrawingOutsideViewBox: true,
