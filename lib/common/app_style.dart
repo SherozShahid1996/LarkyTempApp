@@ -21,6 +21,7 @@ const themePink = Color(0xFFFA0064);
 const themeBackground = Color(0xFFF5F5F5);
 const themeBorder = Color(0xFFD4D4D4);
 const themeOrange = Color(0xFFFF643C);
+const themeGray = Colors.grey;
 
 const double kHeading1 = 25;
 const double kHeading2 = 6;
@@ -71,3 +72,6 @@ const listDescStyle = TextStyle(
   fontWeight: FontWeight.w400,
   fontFamily: themeFontGza,
 );
+
+const borderRadius = BorderRadius.only(
+    bottomRight: Radius.circular(50), topRight: Radius.circular(50));

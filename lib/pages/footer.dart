@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../common/app_style.dart';
 import '../common/size_config.dart';
-import '../common/social_media.dart';
+import '../common/constant.dart';
 
 enum FooterPages { pg1, pg2, pg3, pg4, pg5 }
 
@@ -48,23 +48,23 @@ Widget socialIcon() {
         minSize: double.minPositive,
         padding: EdgeInsets.zero,
         child: SvgPicture.asset('images/fb.svg'),
-        onPressed: () => urlLaunch(urls[SocialMedia.Facebook]!),
+        onPressed: () => urlLaunch(urls[SocialMedia.facebook]!),
       ),
       CupertinoButton(
         padding: EdgeInsets.zero,
         child: SvgPicture.asset('images/insta.svg'),
-        onPressed: () => urlLaunch(urls[SocialMedia.Insta]!),
+        onPressed: () => urlLaunch(urls[SocialMedia.insta]!),
       ),
       CupertinoButton(
         padding: EdgeInsets.zero,
         minSize: double.minPositive,
         child: SvgPicture.asset('images/twitter.svg'),
-        onPressed: () => urlLaunch(urls[SocialMedia.Twitter]!),
+        onPressed: () => urlLaunch(urls[SocialMedia.twitter]!),
       ),
       CupertinoButton(
         padding: EdgeInsets.zero,
         child: SvgPicture.asset('images/linkedIn.svg'),
-        onPressed: () => urlLaunch(urls[SocialMedia.LinkedIn]!),
+        onPressed: () => urlLaunch(urls[SocialMedia.linkedIn]!),
       ),
     ],
   );

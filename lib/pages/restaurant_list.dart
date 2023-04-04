@@ -2,12 +2,14 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:temp_larky_front/common/size_config.dart';
 import 'package:http/http.dart' as http;
 import 'package:temp_larky_front/model/common_result.dart';
 import 'package:temp_larky_front/util/AuthDetails.dart';
 import '../common/app_style.dart';
+import '../common/constant.dart';
 import '../model/restaurant_list.dart';
 import 'footer.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -29,57 +31,28 @@ class _RestaurantListState extends State<RestaurantList> {
   late Color _nearbyColor = Colors.black;
   late Color _otherColor = Colors.black;
   late CommonResult commonResult;
+  bool isSearch = false;
+  String searchResilt = "";
 
   final Set<Factory<OneSequenceGestureRecognizer>> gestureRecognizers = {
     Factory(() => EagerGestureRecognizer())
   };
 
-  UniqueKey _key = UniqueKey();
-
-  Future scrollToFavourite() async {
-    final context = favKey.currentContext!;
-    setState(() {
-      _favColor = themeOrange;
-      _nearbyColor = Colors.black;
-      _otherColor = Colors.black;
-    });
-    await Scrollable.ensureVisible(
-      context,
-      //alignment: 0.5,
-      duration: const Duration(milliseconds: 800),
-    );
-  }
-
-  Future scrollToNearby() async {
-    final context = nearbyKey.currentContext!;
-    setState(() {
-      _favColor = Colors.black;
-      _nearbyColor = themeOrange;
-      _otherColor = Colors.black;
-    });
-    await Scrollable.ensureVisible(
-      context,
-      duration: const Duration(milliseconds: 800),
-    );
-  }
-
-  Future scrollToOther() async {
-    final context = otherKey.currentContext!;
-    setState(() {
-      _favColor = Colors.black;
-      _nearbyColor = Colors.black;
-      _otherColor = themeOrange;
-    });
-
-    await Scrollable.ensureVisible(
-      context,
-      //alignment: 0.5,
-      duration: const Duration(milliseconds: 800),
-    );
-  }
-
+  final UniqueKey _key = UniqueKey();
   @override
   Widget build(BuildContext context) {
+    void setSearfield() {
+      setState(() {
+        isSearch = !isSearch;
+      });
+    }
+
+    void getSearch(value) {
+      setState(() {
+        searchResilt = value;
+      });
+    }
+
     return Scaffold(
       backgroundColor: themeBackground,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -138,7 +111,8 @@ class _RestaurantListState extends State<RestaurantList> {
               return SingleChildScrollView(
                 child: Column(
                   children: [
-                    restaurantListHeader(context),
+                    restaurantListHeader(
+                        context, isSearch, setSearfield, getSearch),
                     snapshot.data!.FavResList!.isNotEmpty
                         ? Container(
                             key: favKey,
@@ -206,9 +180,7 @@ class _RestaurantListState extends State<RestaurantList> {
 
   Future<MainList> getData() async {
     final String? token = await AuthDetails.getTokenLocal();
-
-    const serviceBaseUrl = 'https://api.larky.ch/Customer/api/';
-    String signInURL = '${serviceBaseUrl}TempRestaurant/GetTempRestaurantList';
+    String signInURL = urls[ApiUrl.getRestaurant]!;
 
     var resBody = {};
     resBody["Query"] = "Restaurant";
@@ -223,7 +195,60 @@ class _RestaurantListState extends State<RestaurantList> {
         body: jsonEncode(resBody));
     var list = json.decode(json.decode(response.body)["objects"]);
     final objectResponseFinal = MainList.fromJson(list);
+
+    setState(() {
+      _favColor =
+          objectResponseFinal.FavResList!.isEmpty ? themeGray : _favColor;
+      _nearbyColor =
+          objectResponseFinal.NearbyResList!.isEmpty ? themeGray : _nearbyColor;
+      _otherColor = objectResponseFinal.RemainingResList!.isEmpty
+          ? themeGray
+          : _otherColor;
+    });
+
     return objectResponseFinal;
+  }
+
+  Future scrollToFavourite() async {
+    final context = favKey.currentContext!;
+    setState(() {
+      if (_favColor != themeGray) _favColor = themeOrange;
+      if (_nearbyColor != themeGray) _nearbyColor = Colors.black;
+      if (_otherColor != themeGray) _otherColor = Colors.black;
+    });
+    await Scrollable.ensureVisible(
+      context,
+      //alignment: 0.5,
+      duration: const Duration(milliseconds: 800),
+    );
+  }
+
+  Future scrollToNearby() async {
+    final context = nearbyKey.currentContext!;
+    setState(() {
+      if (_favColor != themeGray) _favColor = Colors.black;
+      if (_nearbyColor != themeGray) _nearbyColor = themeOrange;
+      if (_otherColor != themeGray) _otherColor = Colors.black;
+    });
+    await Scrollable.ensureVisible(
+      context,
+      duration: const Duration(milliseconds: 800),
+    );
+  }
+
+  Future scrollToOther() async {
+    final context = otherKey.currentContext!;
+    setState(() {
+      if (_favColor != themeGray) _favColor = Colors.black;
+      if (_nearbyColor != themeGray) _nearbyColor = Colors.black;
+      if (_otherColor != themeGray) _otherColor = themeOrange;
+    });
+
+    await Scrollable.ensureVisible(
+      context,
+      //alignment: 0.5,
+      duration: const Duration(milliseconds: 800),
+    );
   }
 }
 
@@ -240,7 +265,7 @@ Widget restaurantListHeading(String heading) => Padding(
     );
 
 Widget iFrameSheet(
-    BuildContext context, _key, gestureRecognizers, String? restaurantLink) {
+    BuildContext context, key, gestureRecognizers, String? restaurantLink) {
   return makeDismissible(
     context: context,
     child: DraggableScrollableSheet(
@@ -254,7 +279,7 @@ Widget iFrameSheet(
         ),
         padding: const EdgeInsets.all(16),
         child: WebView(
-          key: _key,
+          key: key,
           initialUrl: restaurantLink,
           javascriptMode: JavascriptMode.unrestricted,
           gestureRecognizers: gestureRecognizers,
@@ -264,7 +289,7 @@ Widget iFrameSheet(
   );
 }
 
-Widget restaurantList(var obj, BuildContext context, _key, gestureRecognizers) {
+Widget restaurantList(var obj, BuildContext context, key, gestureRecognizers) {
   return Column(
     children: [
       Row(
@@ -289,9 +314,8 @@ Widget restaurantList(var obj, BuildContext context, _key, gestureRecognizers) {
           isScrollControlled: true,
           context: context,
           backgroundColor: Colors.transparent,
-          builder: (BuildContext context) => iFrameSheet(
-              context, _key, gestureRecognizers, obj.restaurantLink),
-          //iFrameSheet(context, 'https://larky.ch/TempRestaurant'),
+          builder: (BuildContext context) =>
+              iFrameSheet(context, key, gestureRecognizers, obj.restaurantLink),
         ),
         child: Column(
           children: [
@@ -333,13 +357,10 @@ Widget restaurantList(var obj, BuildContext context, _key, gestureRecognizers) {
   );
 }
 
-void updateFavourite(
+Future<void> updateFavourite(
     int? id, bool? isFavorite, String deviceId, BuildContext context) async {
-  print('${id.toString()} +${isFavorite.toString()} ${deviceId}');
   final String? token = await AuthDetails.getTokenLocal();
-  const serviceBaseUrl = 'https://api.larky.ch/Customer/api/';
-  String signInURL =
-      '${serviceBaseUrl}TempRestaurant/AddOrRemoveTempResFavorite';
+  String signInURL = urls[ApiUrl.favoriteEdit]!;
   var resBody = {};
   resBody["Id"] = id;
   resBody["IsFavorite"] = isFavorite;
@@ -348,38 +369,73 @@ void updateFavourite(
       headers: {'Content-Type': 'application/json', 'Token': token.toString()},
       body: jsonEncode(resBody));
   if (response.statusCode == 200) {
-    Navigator.pop(context);
-    Navigator.of(context).pushNamed(RestaurantList.routeName);
+    if (context.mounted) {
+      Navigator.of(context).pop();
+      Navigator.of(context).pushNamed(RestaurantList.routeName);
+    }
   }
 }
 
-Widget restaurantListHeader(BuildContext context) => Padding(
-      padding: const EdgeInsets.only(top: 35, left: 20, right: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          restaurantListLogo(context),
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
+Widget restaurantListHeader(
+    BuildContext context, bool isSearch, onPressed, getSearch) {
+  return Padding(
+    padding: const EdgeInsets.only(top: 35, left: 20, right: 20),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        isSearch
+            ? Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 2000),
+                  child: SizedBox(
+                    height: 48,
+                    child: TextField(
+                      onChanged: (value) {
+                        getSearch(value);
+                      },
+                      decoration: const InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white,
+                        hintText: 'Enter a search term',
+                        prefixIcon:
+                            Icon(Icons.search, color: Colors.black, size: 30),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(width: 3, color: Colors.white),
+                          borderRadius: BorderRadius.only(
+                              bottomLeft: Radius.circular(50),
+                              topLeft: Radius.circular(50)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                            borderSide:
+                                BorderSide(width: 3, color: Colors.white),
+                            borderRadius: BorderRadius.only(
+                                bottomLeft: Radius.circular(50),
+                                topLeft: Radius.circular(50))),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : restaurantListLogo(context),
+        Container(
+          width: 44,
+          height: 48,
+          decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(50),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.search, size: 30),
-              onPressed: () {
-                showSearch(
-                  context: context,
-                  delegate: MySearchDelegate(),
-                );
-              },
-            ),
+              borderRadius:
+                  isSearch ? borderRadius : BorderRadius.circular(50)),
+          child: IconButton(
+            icon: isSearch
+                ? const Icon(Icons.cancel, size: 30)
+                : const Icon(Icons.search, size: 30),
+            onPressed: onPressed,
           ),
-        ],
-      ),
-    );
+        ),
+      ],
+    ),
+  );
+}
 
 Widget restaurantListLogo(BuildContext context) => InkWell(
       onTap: () => Navigator.of(context).pop(),
@@ -390,7 +446,7 @@ Widget restaurantListLogo(BuildContext context) => InkWell(
     );
 
 class MySearchDelegate extends SearchDelegate {
-  List<String> searchResults = ['AA', 'BB', 'CC'];
+  List<String> searchResults = [];
   @override
   Widget? buildLeading(BuildContext context) => IconButton(
         icon: const Icon(Icons.arrow_back),
@@ -412,12 +468,14 @@ class MySearchDelegate extends SearchDelegate {
       ];
 
   @override
-  Widget buildResults(BuildContext context) => Center(
-        child: Text(
-          query,
-          style: const TextStyle(fontSize: 64, fontWeight: FontWeight.bold),
-        ),
-      );
+  Widget buildResults(BuildContext context) => Container();
+  // Center(
+  //
+  //   child: Text(
+  //     query,
+  //     style: const TextStyle(fontSize: 64, fontWeight: FontWeight.bold),
+  //   ),
+  // );
 
   @override
   Widget buildSuggestions(BuildContext context) {
