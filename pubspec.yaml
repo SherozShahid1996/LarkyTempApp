@@ -44,6 +44,7 @@ dependencies:
   flutter_guid: ^0.3.1
   geolocator: ^9.0.2
   flutter_html: ^3.0.0-alpha.3
+  flutter_barcode_scanner: ^2.0.0
 
 dev_dependencies:
   flutter_test:

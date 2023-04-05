@@ -35,11 +35,38 @@ class localStorage {
     }
   }
 
-  static Future<Position> getLocation() async {
-    Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.low);
-    return position;
-    // print(position.latitude);
-    // print(position.longitude);
+  static Future<void> getLocation() async {
+    try {
+      Position? position;
+      LocationPermission permission;
+      permission = await Geolocator.checkPermission();
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+      } else {
+        position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.low);
+      }
+      await storeLocation(position!);
+    } catch (e) {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString('latitude', '0');
+      await prefs.setString('longitude', '0');
+    }
+  }
+
+  static Future<void> storeLocation(Position? position) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('latitude', position!.latitude.toString());
+    await prefs.setString('longitude', position!.longitude.toString());
+  }
+
+  static Future<String> getLatitude() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString('latitude')!;
+  }
+
+  static Future<String> getLongitude() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString('longitude')!;
   }
 }

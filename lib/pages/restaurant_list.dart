@@ -17,11 +17,9 @@ import '../util/localStorage.dart';
 import 'home.dart';
 
 class RestaurantList extends StatefulWidget {
-  //const RestaurantList({Key? key}) : super(key: key);
   static const routeName = '/restaurant-list';
-  final String search;
-  final Position? position;
-  const RestaurantList({required this.search, this.position});
+  final String? search;
+  const RestaurantList({this.search});
 
   @override
   State<RestaurantList> createState() => _RestaurantListState();
@@ -36,32 +34,57 @@ class _RestaurantListState extends State<RestaurantList> {
   late Color _nearbyColor = Colors.black;
   late Color _otherColor = Colors.black;
   late CommonResult commonResult;
+  Position? position = null;
   bool isSearch = false;
-  String searchResilt = "";
+  //String searchResilt = "";
   String deviceId = "";
+  String latitude = "";
+  String longitude = "";
 
   bool flag = false;
   final TextEditingController? _search = new TextEditingController();
-  void getSearch(value) {
-    setState(() {
-      searchResilt = value;
-    });
-  }
 
   Future<void> getDeviceId() async {
     String query = await localStorage.getDeviceId();
     deviceId = query;
   }
 
+  Future<void> setLatitude() async {
+    latitude = await localStorage.getLatitude();
+  }
+
+  Future<void> setLongitude() async {
+    longitude = await localStorage.getLongitude();
+  }
+
+  void setSearchField() {
+    setState(() {
+      if (_search!.text!.isNotEmpty) {
+        localStorage.storeSearchValue("");
+        _search!.clear();
+      } else {
+        isSearch = !isSearch;
+      }
+    });
+  }
+
+  void refreshList() {
+    setState(() {
+      getData();
+    });
+  }
+
   @override
   initState() {
+    super.initState();
     flag = true;
-    _search!.text = widget.search;
-    if (widget.search.isNotEmpty) {
-      isSearch = true;
-      getSearch(widget.search);
-    }
     getDeviceId();
+    setLongitude();
+    setLatitude();
+    if (widget.search!.isNotEmpty) {
+      isSearch = true;
+    }
+    _search!.text = widget.search!;
   }
 
   final Set<Factory<OneSequenceGestureRecognizer>> gestureRecognizers = {
@@ -71,18 +94,6 @@ class _RestaurantListState extends State<RestaurantList> {
   final UniqueKey _key = UniqueKey();
   @override
   Widget build(BuildContext context) {
-    void setSearfield() {
-      setState(() {
-        if (searchResilt != "") {
-          searchResilt = "";
-          localStorage.storeSearchValue("");
-          _search!.clear();
-        } else {
-          isSearch = !isSearch;
-        }
-      });
-    }
-
     return Scaffold(
       backgroundColor: themeBackground,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -145,7 +156,7 @@ class _RestaurantListState extends State<RestaurantList> {
                 child: Column(
                   children: [
                     restaurantListHeader(
-                        context, isSearch, setSearfield, getSearch, _search),
+                        context, isSearch, setSearchField, _search),
                     snapshot.data!.FavResList!.isNotEmpty
                         ? Container(
                             key: favKey,
@@ -218,9 +229,9 @@ class _RestaurantListState extends State<RestaurantList> {
     final String? token = await AuthDetails.getTokenLocal();
     String signInURL = urls[ApiUrl.getRestaurant]!;
     var resBody = {};
-    resBody["Query"] = searchResilt;
-    resBody["Latitude"] = "37.4220936"; // widget.position!.latitude;
-    resBody["Longitude"] = "-122.083922"; // widget.position!.longitude;
+    resBody["Query"] = _search!.text;
+    resBody["Latitude"] = latitude; // widget.position!.latitude;
+    resBody["Longitude"] = longitude; // widget.position!.longitude;
     resBody["DeviceId"] = deviceId;
     final response = await http.post(Uri.parse(signInURL),
         headers: {
@@ -230,6 +241,8 @@ class _RestaurantListState extends State<RestaurantList> {
         body: jsonEncode(resBody));
     var list = json.decode(json.decode(response.body)["objects"]);
     final objectResponseFinal = MainList.fromJson(list);
+    print(objectResponseFinal.FavResList);
+    print(objectResponseFinal.NearbyResList!.length);
     return objectResponseFinal;
   }
 
@@ -290,264 +303,267 @@ class _RestaurantListState extends State<RestaurantList> {
       duration: const Duration(milliseconds: 800),
     );
   }
-}
 
-Widget restaurantListHeading(String heading) => Padding(
-      padding: const EdgeInsets.only(bottom: 37, top: 37),
-      child: SizedBox(
-        width: SizeConfig.screenWidth! * listHeadingWidth,
-        child: Text(
-          heading,
-          style: headingTextStyle,
-          textAlign: TextAlign.center,
+  Future<void> updateFavourite(int? id, bool? isFavorite, String deviceId,
+      BuildContext context, search) async {
+    final String? token = await AuthDetails.getTokenLocal();
+    String signInURL = urls[ApiUrl.favoriteEdit]!;
+    var resBody = {};
+    resBody["Id"] = id;
+    resBody["IsFavorite"] = isFavorite;
+    resBody["DeviceId"] = deviceId;
+    await http.post(Uri.parse(signInURL),
+        headers: {
+          'Content-Type': 'application/json',
+          'Token': token.toString()
+        },
+        body: jsonEncode(resBody));
+    setState(() {
+      getData();
+      if (!isFavorite!) scrollToFavourite();
+    });
+  }
+
+  Widget restaurantList(
+    var obj,
+    BuildContext context,
+    key,
+    gestureRecognizers,
+    deviceId,
+  ) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            SizedBox(
+              width: SizeConfig.screenWidth! * listImgWidth,
+              child: IconButton(
+                icon: Icon(
+                  obj.isFavorite! ? Icons.favorite : Icons.favorite_border,
+                  color: themePink,
+                ),
+                highlightColor: Colors.pink,
+                onPressed: () => updateFavourite(
+                    obj.id, obj.isFavorite!, deviceId, context, _search),
+              ),
+            ),
+          ],
+        ),
+        GestureDetector(
+          onTap: () => showModalBottomSheet<void>(
+            isScrollControlled: true,
+            context: context,
+            backgroundColor: Colors.transparent,
+            builder: (BuildContext context) => iFrameSheet(
+                context, key, gestureRecognizers, obj.restaurantLink),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: SizeConfig.screenWidth! * listImgWidth,
+                height: SizeConfig.screenWidth! * listImgWidth,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  image: DecorationImage(
+                    image:
+                        Image.network(obj.imageUrl!, fit: BoxFit.cover).image,
+                    fit: BoxFit.cover,
+                  ),
+                  borderRadius: BorderRadius.circular(300),
+                  border: Border.all(color: themeBorder, width: 2.0),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: SizeConfig.screenWidth! * listTitleWidth,
+                child: Text(
+                  obj.name!,
+                  style: listTitleStyle,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              SizedBox(
+                width: SizeConfig.screenWidth! * listTitleWidth,
+                child: Text(
+                  "${obj.street} ${obj.houseNumber}\n${obj.postalCode} ${obj.location}",
+                  style: listDescStyle,
+                  textAlign: TextAlign.center,
+                ),
+              )
+            ],
+          ),
+        ),
+        const SizedBox(height: 37)
+      ],
+    );
+  }
+
+  Widget restaurantListHeading(String heading) => Padding(
+        padding: const EdgeInsets.only(bottom: 37, top: 37),
+        child: SizedBox(
+          width: SizeConfig.screenWidth! * listHeadingWidth,
+          child: Text(
+            heading,
+            style: headingTextStyle,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+
+  Widget iFrameSheet(
+      BuildContext context, key, gestureRecognizers, String? restaurantLink) {
+    return makeDismissible(
+      context: context,
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        builder: (_, controller) => Container(
+          decoration: const BoxDecoration(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            color: Colors.white,
+          ),
+          padding: const EdgeInsets.all(16),
+          child: WebView(
+            key: key,
+            initialUrl: restaurantLink,
+            javascriptMode: JavascriptMode.unrestricted,
+            gestureRecognizers: gestureRecognizers,
+          ),
         ),
       ),
     );
-
-Widget iFrameSheet(
-    BuildContext context, key, gestureRecognizers, String? restaurantLink) {
-  return makeDismissible(
-    context: context,
-    child: DraggableScrollableSheet(
-      initialChildSize: 0.9,
-      minChildSize: 0.5,
-      maxChildSize: 0.9,
-      builder: (_, controller) => Container(
-        decoration: const BoxDecoration(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          color: Colors.white,
-        ),
-        padding: const EdgeInsets.all(16),
-        child: WebView(
-          key: key,
-          initialUrl: restaurantLink,
-          javascriptMode: JavascriptMode.unrestricted,
-          gestureRecognizers: gestureRecognizers,
-        ),
-      ),
-    ),
-  );
-}
-
-Widget restaurantList(
-    var obj, BuildContext context, key, gestureRecognizers, deviceId) {
-  return Column(
-    children: [
-      Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          SizedBox(
-            width: SizeConfig.screenWidth! * listImgWidth,
-            child: IconButton(
-              icon: Icon(
-                obj.isFavorite! ? Icons.favorite : Icons.favorite_border,
-                color: themePink,
-              ),
-              highlightColor: Colors.pink,
-              onPressed: () =>
-                  updateFavourite(obj.id, obj.isFavorite!, deviceId, context),
-            ),
-          ),
-        ],
-      ),
-      GestureDetector(
-        onTap: () => showModalBottomSheet<void>(
-          isScrollControlled: true,
-          context: context,
-          backgroundColor: Colors.transparent,
-          builder: (BuildContext context) =>
-              iFrameSheet(context, key, gestureRecognizers, obj.restaurantLink),
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: SizeConfig.screenWidth! * listImgWidth,
-              height: SizeConfig.screenWidth! * listImgWidth,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                image: DecorationImage(
-                  image: Image.network(obj.imageUrl!, fit: BoxFit.cover).image,
-                  fit: BoxFit.cover,
-                ),
-                borderRadius: BorderRadius.circular(300),
-                border: Border.all(color: themeBorder, width: 2.0),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: SizeConfig.screenWidth! * listTitleWidth,
-              child: Text(
-                obj.name!,
-                style: listTitleStyle,
-                textAlign: TextAlign.center,
-              ),
-            ),
-            SizedBox(
-              width: SizeConfig.screenWidth! * listTitleWidth,
-              child: Text(
-                "${obj.street} ${obj.houseNumber}\n${obj.postalCode} ${obj.location}",
-                style: listDescStyle,
-                textAlign: TextAlign.center,
-              ),
-            )
-          ],
-        ),
-      ),
-      const SizedBox(height: 37)
-    ],
-  );
-}
-
-Future<void> updateFavourite(
-    int? id, bool? isFavorite, String deviceId, BuildContext context) async {
-  final String? token = await AuthDetails.getTokenLocal();
-  String signInURL = urls[ApiUrl.favoriteEdit]!;
-  var resBody = {};
-  resBody["Id"] = id;
-  resBody["IsFavorite"] = isFavorite;
-  resBody["DeviceId"] = deviceId;
-  final response = await http.post(Uri.parse(signInURL),
-      headers: {'Content-Type': 'application/json', 'Token': token.toString()},
-      body: jsonEncode(resBody));
-  if (response.statusCode == 200) {
-    if (context.mounted) {
-      Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const RestaurantList(search: ''),
-          ));
-      // Navigator.of(context).pop();
-      // Navigator.of(context).pushNamed(RestaurantList.routeName);
-    }
   }
-}
 
-Widget restaurantListHeader(
-    BuildContext context, bool isSearch, onPressed, getSearch, search) {
-  return Padding(
-    padding: const EdgeInsets.only(top: 35, left: 20, right: 20),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        isSearch
-            ? Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 2000),
-                  child: SizedBox(
-                    height: 48,
-                    child: TextField(
-                      controller: search,
-                      onSubmitted: (value) {
-                        localStorage.storeSearchValue(value);
-                        getSearch(value);
-                      },
-                      decoration: const InputDecoration(
-                        filled: true,
-                        fillColor: Colors.white,
-                        hintText: 'Postleitzahl, Ort oder Restaurant',
-                        prefixIcon:
-                            Icon(Icons.search, color: Colors.black, size: 30),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(width: 3, color: Colors.white),
-                          borderRadius: BorderRadius.only(
-                              bottomLeft: Radius.circular(50),
-                              topLeft: Radius.circular(50)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
+  Widget restaurantListHeader(
+      BuildContext context, bool isSearch, onPressed, search) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 35, left: 20, right: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          isSearch
+              ? Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 2000),
+                    child: SizedBox(
+                      height: 48,
+                      child: TextField(
+                        controller: search,
+                        onSubmitted: (value) {
+                          localStorage.storeSearchValue(value);
+                          refreshList();
+                        },
+                        decoration: const InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          hintText: 'Postleitzahl, Ort oder Restaurant',
+                          prefixIcon:
+                              Icon(Icons.search, color: Colors.black, size: 30),
+                          enabledBorder: OutlineInputBorder(
                             borderSide:
                                 BorderSide(width: 3, color: Colors.white),
                             borderRadius: BorderRadius.only(
                                 bottomLeft: Radius.circular(50),
-                                topLeft: Radius.circular(50))),
+                                topLeft: Radius.circular(50)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                              borderSide:
+                                  BorderSide(width: 3, color: Colors.white),
+                              borderRadius: BorderRadius.only(
+                                  bottomLeft: Radius.circular(50),
+                                  topLeft: Radius.circular(50))),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              )
-            : restaurantListLogo(context),
-        Container(
-          width: 44,
-          height: 48,
-          decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius:
-                  isSearch ? borderRadius : BorderRadius.circular(50)),
-          child: IconButton(
-            icon: isSearch
-                ? const Icon(Icons.cancel, size: 30)
-                : const Icon(Icons.search, size: 30),
-            onPressed: onPressed,
+                )
+              : restaurantListLogo(context),
+          Container(
+            width: 44,
+            height: 48,
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius:
+                    isSearch ? borderRadius : BorderRadius.circular(50)),
+            child: IconButton(
+              icon: isSearch
+                  ? const Icon(Icons.cancel, size: 30)
+                  : const Icon(Icons.search, size: 30),
+              onPressed: onPressed,
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
-
-Widget restaurantListLogo(BuildContext context) => InkWell(
-      onTap: () => Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const Home(),
-          )),
-      child: SvgPicture.asset(
-        'images/mblLogo2.svg',
-        allowDrawingOutsideViewBox: true,
+        ],
       ),
     );
-
-class MySearchDelegate extends SearchDelegate {
-  List<String> searchResults = [];
-  @override
-  Widget? buildLeading(BuildContext context) => IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => close(context, null),
-      );
-
-  @override
-  List<Widget>? buildActions(BuildContext context) => [
-        IconButton(
-          icon: const Icon(Icons.clear),
-          onPressed: () {
-            if (query.isEmpty) {
-              close(context, null);
-            } else {
-              query = '';
-            }
-          },
-        ),
-      ];
-
-  @override
-  Widget buildResults(BuildContext context) => Container();
-  // Center(
-  //
-  //   child: Text(
-  //     query,
-  //     style: const TextStyle(fontSize: 64, fontWeight: FontWeight.bold),
-  //   ),
-  // );
-
-  @override
-  Widget buildSuggestions(BuildContext context) {
-    List<String> suggestions = searchResults.where((searchResult) {
-      final result = searchResult.toLowerCase();
-      final input = query.toLowerCase();
-      return result.contains(input);
-    }).toList();
-    return ListView.builder(
-      itemCount: suggestions.length,
-      itemBuilder: (context, index) {
-        final suggestion = suggestions[index];
-        return ListTile(
-          title: Text(suggestion),
-          onTap: () {
-            query = suggestion;
-            showResults(context);
-          },
-        );
-      },
-    );
   }
+
+  Widget restaurantListLogo(BuildContext context) => InkWell(
+        onTap: () => Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const Home(),
+            )),
+        child: SvgPicture.asset(
+          'images/mblLogo2.svg',
+          allowDrawingOutsideViewBox: true,
+        ),
+      );
 }
+
+// class MySearchDelegate extends SearchDelegate {
+//   List<String> searchResults = [];
+//   @override
+//   Widget? buildLeading(BuildContext context) => IconButton(
+//         icon: const Icon(Icons.arrow_back),
+//         onPressed: () => close(context, null),
+//       );
+//
+//   @override
+//   List<Widget>? buildActions(BuildContext context) => [
+//         IconButton(
+//           icon: const Icon(Icons.clear),
+//           onPressed: () {
+//             if (query.isEmpty) {
+//               close(context, null);
+//             } else {
+//               query = '';
+//             }
+//           },
+//         ),
+//       ];
+//
+//   @override
+//   Widget buildResults(BuildContext context) => Container();
+//   // Center(
+//   //
+//   //   child: Text(
+//   //     query,
+//   //     style: const TextStyle(fontSize: 64, fontWeight: FontWeight.bold),
+//   //   ),
+//   // );
+//
+//   @override
+//   Widget buildSuggestions(BuildContext context) {
+//     List<String> suggestions = searchResults.where((searchResult) {
+//       final result = searchResult.toLowerCase();
+//       final input = query.toLowerCase();
+//       return result.contains(input);
+//     }).toList();
+//     return ListView.builder(
+//       itemCount: suggestions.length,
+//       itemBuilder: (context, index) {
+//         final suggestion = suggestions[index];
+//         return ListTile(
+//           title: Text(suggestion),
+//           onTap: () {
+//             query = suggestion;
+//             showResults(context);
+//           },
+//         );
+//       },
+//     );
+//   }
+// }
